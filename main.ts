@@ -6,3 +6,5 @@ if (import.meta.main) {
   const services = new Services();
   listen(services);
 }
+
+export * from "./inspect.ts";
