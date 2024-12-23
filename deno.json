@@ -1,7 +1,10 @@
 {
   "name": "@artery/bootloader",
-  "exports": "./main.ts", 
-  "version": "0.0.2",
+  "exports": {
+    "./inspect": "./inspect.ts",
+    ".": "./main.ts"
+  }, 
+  "version": "0.0.3",
   "tasks": {
     "dev": "deno run --watch main.ts"
   },
