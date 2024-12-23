@@ -1,5 +1,5 @@
 #!/usr/bin/env -S deno run --allow-run
-import { Spinner } from "jsr:@std/cli/unstable-spinner";
+import { Spinner } from "@std/cli/unstable-spinner";
 import { Services } from "./service/services.ts";
 
 const services = new Services();
