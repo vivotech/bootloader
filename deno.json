@@ -4,7 +4,7 @@
     "./inspect": "./inspect.ts",
     ".": "./main.ts"
   }, 
-  "version": "0.0.3",
+  "version": "0.1.0",
   "tasks": {
     "dev": "deno run --watch main.ts",
     "inspect": "deno run --allow-read --allow-run --allow-write inspect.ts",

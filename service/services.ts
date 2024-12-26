@@ -1,5 +1,7 @@
 import { BINARIES_PATH, SOURCES_PATH } from "../binary/binary.ts";
 import { cmd } from "../command.ts";
+import { drop } from "../drop.ts";
+import { dropError } from "../drop.ts";
 
 export class Services {
   list = new Map();
@@ -17,26 +19,43 @@ export class Services {
   }
 
   async install(gitUrl: string) {
-    const { readFile } = Deno;
+    const { readFile, lstat, writeFile } = Deno;
     const [_, name] = gitUrl.split("/");
     const path = `${SOURCES_PATH}/${name}`;
     const rawConfig = await readFile(path + "/deno.json");
     const config = JSON.parse(new TextDecoder().decode(rawConfig));
 
-    const pkgName = config.name + " " + config.version;
-
     if (config.tasks.compile) {
-      // compile into binaries
+      try {
+        await lstat(BINARIES_PATH + "/" + name);
+      } catch (error) {
+        drop("Compile binary");
+        await cmd("deno", "task", "compile");
+        await cmd("mv", name, BINARIES_PATH + "/" + name);
+      }
 
-      const systemConfig: SystemConfig = {
-        execStart: `${BINARIES_PATH}/${pkgName}`,
-      };
+      const serviceFilePath = "/etc/systemd/system/" + name + ".service";
 
-      // write into systemd directory
+      try {
+        await lstat(serviceFilePath);
+        drop("Service already installed");
+      } catch (error) {
+        const tempService = `./${name}.service`;
+        const systemConfig: SystemConfig = {
+          execStart: `${BINARIES_PATH}/${name}`,
+        };
 
-      console.log(systemConfig);
+        await writeFile(
+          tempService,
+          new TextEncoder().encode(configTemplate(systemConfig))
+        );
+
+        await cmd("sudo", "mv", tempService, serviceFilePath);
+
+        drop('Service installed as "' + serviceFilePath + '"', "green");
+      }
     } else {
-      console.log(name + " cannot be serviced");
+      dropError(name + " cannot be serviced");
     }
   }
 
@@ -129,13 +148,16 @@ export function configTemplate({
   user,
 }: SystemConfig) {
   let configUnit = `[Unit]`;
+
+  configUnit += `\nAfter=network.target`;
+
   let configService = `[Service]`;
+
+  configService += `\nType=simple`;
 
   if (description) {
     configUnit += `\nDescription=${description}`;
   }
-
-  // After=network.target
 
   if (user) {
     configService += `\nUser=${user}`;
@@ -156,7 +178,7 @@ export function configTemplate({
   // Restart=on-failure
   // RestartSec=5s
 
-  return `${configUnit}\n${configService}
+  return `${configUnit !== "[Unit]" ? configUnit + "\n" : ""}${configService}
 [Install]
 WantedBy=multi-user.target`;
 }

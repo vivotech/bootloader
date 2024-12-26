@@ -2,7 +2,7 @@
 import { Spinner } from "@std/cli/unstable-spinner";
 import { Services } from "./service/services.ts";
 import { Binary } from "./binary/binary.ts";
-import { dropError } from "./drop.ts";
+import { drop, dropError } from "./drop.ts";
 
 const services = new Services();
 const binary = new Binary();
@@ -35,4 +35,9 @@ if (status === undefined) {
   console.log("Bootloader is running fine");
 } else {
   const start = confirm("Do you want to start hydra bootloader?");
+
+  if (start) {
+    console.log(await services.start("bootloader.service"));
+    drop("Here we goo", "green");
+  }
 }
