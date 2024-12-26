@@ -1,3 +1,6 @@
+import { BINARIES_PATH, SOURCES_PATH } from "../binary/binary.ts";
+import { cmd } from "../command.ts";
+
 export class Services {
   list = new Map();
 
@@ -13,18 +16,64 @@ export class Services {
     return this.list.size;
   }
 
-  unitStatus(unit: string) {
-    return this.list.has(unit) ? false : undefined;
+  async install(gitUrl: string) {
+    const { readFile } = Deno;
+    const [_, name] = gitUrl.split("/");
+    const path = `${SOURCES_PATH}/${name}`;
+    const rawConfig = await readFile(path + "/deno.json");
+    const config = JSON.parse(new TextDecoder().decode(rawConfig));
+
+    const pkgName = config.name + " " + config.version;
+
+    if (config.tasks.compile) {
+      // compile into binaries
+
+      const systemConfig: SystemConfig = {
+        execStart: `${BINARIES_PATH}/${pkgName}`,
+      };
+
+      // write into systemd directory
+
+      console.log(systemConfig);
+    } else {
+      console.log(name + " cannot be serviced");
+    }
   }
 
-  download(url: string) {
-    console.log(`TODO: download from ${url}`);
+  async enable(unit: string) {
+    const { success } = await cmd("systemctl", "enable", unit);
+    return success;
   }
 
-  install(url: string) {
-    console.log("TODO: add executable");
-    console.log("TODO: add service file");
-    console.log("TODO: run service");
+  async disable(unit: string) {
+    const { success } = await cmd("systemctl", "disable", unit);
+    return success;
+  }
+
+  async start(unit: string) {
+    const { success } = await cmd("systemctl", "start", unit);
+    return success;
+  }
+
+  async stop(unit: string) {
+    const { success } = await cmd("systemctl", "stop", unit);
+    return success;
+  }
+
+  async reload(unit: string) {
+    const { success } = await cmd("systemctl", "reload", unit);
+    return success;
+  }
+
+  async status(unit: string) {
+    const { output, error } = await cmd("systemctl", "status", unit);
+    console.log(output || error);
+
+    if (error === `Unit ${unit} could not be found.`) {
+      return undefined;
+    }
+
+    return false;
   }
 }
 
@@ -60,4 +109,54 @@ export function getUnits() {
     list,
     code,
   };
+}
+
+export interface SystemConfig {
+  workingDirectory?: string;
+  // restartSec?: string;
+  // restart?: string;
+  description?: string;
+  execStart: string;
+  group?: string;
+  user?: string;
+}
+
+export function configTemplate({
+  workingDirectory,
+  description,
+  execStart,
+  group,
+  user,
+}: SystemConfig) {
+  let configUnit = `[Unit]`;
+  let configService = `[Service]`;
+
+  if (description) {
+    configUnit += `\nDescription=${description}`;
+  }
+
+  // After=network.target
+
+  if (user) {
+    configService += `\nUser=${user}`;
+  }
+
+  if (group) {
+    configService += `\nGroup=${group}`;
+  }
+
+  if (execStart) {
+    configService += `\nExecStart=${execStart}`;
+  }
+
+  if (workingDirectory) {
+    configService += `\nWorkingDirectory=${workingDirectory}`;
+  }
+
+  // Restart=on-failure
+  // RestartSec=5s
+
+  return `${configUnit}\n${configService}
+[Install]
+WantedBy=multi-user.target`;
 }
